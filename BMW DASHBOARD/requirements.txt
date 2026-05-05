@@ -5,5 +5,5 @@ plotly
 scipy
 statsmodels
 markdown-it-py==2.2.0
-rich==15.7.0
+rich==15.0.0
 pygments==2.17.2
