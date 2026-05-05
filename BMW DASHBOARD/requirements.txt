@@ -4,6 +4,7 @@ numpy
 plotly
 scipy
 statsmodels
-markdown-it-py==2.2.0
-rich==15.0.0
+markdown-it-py==3.0.0
+rich==13.7.1
 pygments==2.17.2
+mdurl==0.1.2
