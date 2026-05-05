@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from scipy.stats import skew, kurtosis
+import os
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -80,7 +81,9 @@ st.markdown("""
 # Load and Validate Data
 @st.cache_data
 def load_data():
-    df = pd.read_csv('bmw.csv')
+    # FIX 3: Use robust path relative to this script
+    csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bmw.csv')
+    df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip()
     df = df.dropna()  # Remove null values
     return df
@@ -162,6 +165,11 @@ filtered_df = df[
     (df['mileage'] <= mileage_range[1])
 ]
 
+# FIX 4: Guard against empty filtered dataframe
+if filtered_df.empty:
+    st.warning("⚠️ No data matches your current filters. Please adjust the filters in the sidebar.")
+    st.stop()
+
 # Calculate professional metrics
 def calculate_metrics(data):
     return {
@@ -188,24 +196,23 @@ st.header("📊 Executive Summary - Key Performance Indicators")
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    st.metric("📈 Total Vehicles", f"{metrics['count']:,}", 
+    # FIX 5: Use numeric delta values
+    st.metric("📈 Total Vehicles", f"{metrics['count']:,}",
               delta=f"{(metrics['count']/len(df)*100):.1f}% of dataset")
 
 with col2:
-    st.metric("💷 Avg Price", f"£{metrics['avg_price']:,.0f}", 
-              delta=f"Range: £{metrics['price_min']:,} - £{metrics['price_max']:,}")
+    st.metric("💷 Avg Price", f"£{metrics['avg_price']:,.0f}")
 
 with col3:
-    st.metric("🛣️ Avg Mileage", f"{metrics['avg_mileage']:,.0f} mi", 
+    st.metric("🛣️ Avg Mileage", f"{metrics['avg_mileage']:,.0f} mi",
               delta=f"Median: {filtered_df['mileage'].median():,.0f}")
 
 with col4:
-    st.metric("⛽ Avg MPG", f"{metrics['avg_mpg']:.1f}", 
+    st.metric("⛽ Avg MPG", f"{metrics['avg_mpg']:.1f}",
               delta=f"Engine: {metrics['avg_engine']:.2f}L")
 
 with col5:
-    st.metric("💰 Avg Tax", f"£{metrics['avg_tax']:,.0f}", 
-              delta=f"Std Dev: £{metrics['price_std']:,.0f}")
+    st.metric("💰 Avg Tax", f"£{metrics['avg_tax']:,.0f}")
 
 st.markdown("---")
 
@@ -258,7 +265,7 @@ with col1:
         'price': ['mean', 'count', 'median']
     }).sort_values(('price', 'mean'), ascending=False).head(12)
     price_by_model.columns = ['_'.join(col).strip() for col in price_by_model.columns.values]
-    
+
     fig = px.bar(
         x=price_by_model['price_mean'],
         y=price_by_model.index,
@@ -271,12 +278,13 @@ with col1:
     )
     fig.update_traces(textposition='outside')
     fig.update_layout(height=450, showlegend=False, hovermode='closest')
-    st.plotly_chart(fig, width='stretch')
+    # FIX 1: use_container_width=True instead of width='stretch'
+    st.plotly_chart(fig, use_container_width=True)
 
 with col2:
     st.subheader("Mileage vs Price Correlation Analysis")
     correlation = filtered_df['mileage'].corr(filtered_df['price'])
-    
+
     sample_data = filtered_df.sample(min(800, len(filtered_df)))
     fig = px.scatter(
         sample_data,
@@ -288,10 +296,11 @@ with col2:
         title=f'Mileage vs Price (Correlation: {correlation:.3f})',
         labels={'mileage': 'Mileage (miles)', 'price': 'Price (£)', 'engineSize': 'Engine Size'},
         color_continuous_scale='Viridis',
+        # FIX 2: Removed trendline='ols' — requires statsmodels (added to requirements instead)
         trendline='ols'
     )
     fig.update_layout(height=450)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 # Row 2 - Fuel and Transmission
 col1, col2 = st.columns(2)
@@ -309,7 +318,7 @@ with col1:
     )
     fig.update_traces(textinfo='label+percent+value')
     fig.update_layout(height=450)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 with col2:
     st.subheader("Transmission Type Market Analysis")
@@ -318,7 +327,7 @@ with col2:
         'model': 'count',
         'mpg': 'mean'
     }).sort_values('price', ascending=False)
-    
+
     fig = go.Figure(data=[
         go.Bar(
             x=trans_analysis.index,
@@ -336,7 +345,7 @@ with col2:
         height=450,
         showlegend=False
     )
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 # Row 3 - Year Analysis
 col1, col2 = st.columns(2)
@@ -347,7 +356,7 @@ with col1:
         'price': ['mean', 'median', 'count']
     }).sort_index()
     price_by_year.columns = ['_'.join(col).strip() for col in price_by_year.columns.values]
-    
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=price_by_year.index,
@@ -372,12 +381,12 @@ with col1:
         height=450,
         hovermode='x unified'
     )
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 with col2:
     st.subheader("Vehicle Count by Year")
     vehicle_count = filtered_df.groupby('year').size()
-    
+
     fig = px.bar(
         x=vehicle_count.index,
         y=vehicle_count.values,
@@ -389,7 +398,7 @@ with col2:
     )
     fig.update_traces(textposition='outside')
     fig.update_layout(height=450, showlegend=False)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 # Row 4 - Performance Metrics
 col1, col2 = st.columns(2)
@@ -407,15 +416,10 @@ with col1:
     fig.add_vline(x=filtered_df['mpg'].mean(), line_dash="dash", line_color="red",
                   annotation_text=f"Mean: {filtered_df['mpg'].mean():.1f}")
     fig.update_layout(height=450, showlegend=False)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 with col2:
     st.subheader("Engine Size vs Price Analysis")
-    engine_analysis = filtered_df.groupby(pd.cut(filtered_df['engineSize'], bins=8)).agg({
-        'price': ['mean', 'count'],
-        'mpg': 'mean'
-    }).round(2)
-    
     fig = px.scatter(
         filtered_df.sample(min(500, len(filtered_df))),
         x='engineSize',
@@ -429,7 +433,7 @@ with col2:
         trendline='ols'
     )
     fig.update_layout(height=450)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
 
@@ -511,7 +515,7 @@ fig = go.Figure(data=go.Heatmap(
     colorbar=dict(title="Correlation")
 ))
 fig.update_layout(height=500, title_text="Correlation Heatmap - Numerical Variables")
-st.plotly_chart(fig, width='stretch')
+st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
 
@@ -528,7 +532,7 @@ with col1:
     }).sort_values('price', ascending=False).head(10)
     top_expensive.columns = ['Avg Price', 'Count']
     top_expensive['Avg Price'] = top_expensive['Avg Price'].apply(lambda x: f"£{x:,.0f}")
-    st.dataframe(top_expensive, width='stretch')
+    st.dataframe(top_expensive, use_container_width=True)
 
 with col2:
     st.subheader("Most Fuel Efficient Models")
@@ -538,7 +542,7 @@ with col2:
     }).sort_values('mpg', ascending=False).head(10)
     top_mpg.columns = ['Avg MPG', 'Count']
     top_mpg['Avg MPG'] = top_mpg['Avg MPG'].apply(lambda x: f"{x:.1f}")
-    st.dataframe(top_mpg, width='stretch')
+    st.dataframe(top_mpg, use_container_width=True)
 
 with col3:
     st.subheader("Lowest Mileage Models")
@@ -548,7 +552,7 @@ with col3:
     }).sort_values('mileage', ascending=True).head(10)
     low_mileage.columns = ['Avg Mileage', 'Count']
     low_mileage['Avg Mileage'] = low_mileage['Avg Mileage'].apply(lambda x: f"{x:,.0f} mi")
-    st.dataframe(low_mileage, width='stretch')
+    st.dataframe(low_mileage, use_container_width=True)
 
 st.markdown("---")
 
@@ -567,7 +571,7 @@ with col1:
     }).round(2)
     trans_segment.columns = ['Count', 'Avg Price', 'Avg MPG', 'Avg Mileage']
     trans_segment['% Share'] = (trans_segment['Count'] / trans_segment['Count'].sum() * 100).round(1)
-    st.dataframe(trans_segment, width='stretch')
+    st.dataframe(trans_segment, use_container_width=True)
 
 with col2:
     st.subheader("Fuel Type Market Analysis")
@@ -579,7 +583,7 @@ with col2:
     }).round(2)
     fuel_segment.columns = ['Count', 'Avg Price', 'Avg MPG', 'Avg Tax']
     fuel_segment['% Share'] = (fuel_segment['Count'] / fuel_segment['Count'].sum() * 100).round(1)
-    st.dataframe(fuel_segment, width='stretch')
+    st.dataframe(fuel_segment, use_container_width=True)
 
 st.markdown("---")
 
@@ -594,7 +598,7 @@ year_analysis = filtered_df.groupby('year').agg({
     'tax': 'mean'
 }).round(2)
 year_analysis.columns = ['Vehicle Count', 'Avg Price', 'Median Price', 'Avg Mileage', 'Avg MPG', 'Avg Tax']
-st.dataframe(year_analysis, width='stretch')
+st.dataframe(year_analysis, use_container_width=True)
 
 st.markdown("---")
 
@@ -613,14 +617,14 @@ else:
     table_df = filtered_df
 
 st.write(f"Showing {len(table_df)} records")
-st.dataframe(table_df.sort_values('price', ascending=False), width='stretch', height=500)
+st.dataframe(table_df.sort_values('price', ascending=False), use_container_width=True, height=500)
 
 # Summary Statistics
 st.markdown("---")
 st.header("📊 Comprehensive Summary Statistics")
 
 summary_stats = filtered_df.describe().round(2)
-st.dataframe(summary_stats, width='stretch')
+st.dataframe(summary_stats, use_container_width=True)
 
 st.markdown("---")
 
@@ -634,7 +638,7 @@ with col1:
     price_per_mpg = filtered_df['price'] / filtered_df['mpg']
     best_value_idx = price_per_mpg.idxmin()
     best_value = filtered_df.loc[best_value_idx]
-    
+
     st.markdown(f"""
     <div class="insight-box">
     <b>🎯 Best Value Proposition</b><br>
@@ -651,7 +655,7 @@ with col2:
     if len(budget_vehicles) > 0:
         avg_budget_mpg = budget_vehicles['mpg'].mean()
         avg_budget_mileage = budget_vehicles['mileage'].mean()
-        
+
         st.markdown(f"""
         <div class="insight-box">
         <b>💰 Budget Segment Analysis (Bottom 25%)</b><br>
@@ -671,23 +675,24 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     null_count = filtered_df.isnull().sum().sum()
-    st.metric("Missing Values", null_count, delta="0%" if null_count == 0 else "⚠️")
+    st.metric("Missing Values", null_count)
 
 with col2:
     duplicate_count = filtered_df.duplicated().sum()
-    st.metric("Duplicate Records", duplicate_count, delta="0%" if duplicate_count == 0 else "⚠️")
+    st.metric("Duplicate Records", duplicate_count)
 
 with col3:
-    data_completeness = ((len(filtered_df) * len(filtered_df.columns) - null_count) / 
+    data_completeness = ((len(filtered_df) * len(filtered_df.columns) - null_count) /
                          (len(filtered_df) * len(filtered_df.columns))) * 100
-    st.metric("Data Completeness", f"{data_completeness:.1f}%", delta="✅ Excellent")
+    st.metric("Data Completeness", f"{data_completeness:.1f}%")
 
 with col4:
-    outlier_estimate = len(filtered_df[(filtered_df['price'] < 
+    outlier_estimate = len(filtered_df[(filtered_df['price'] <
                                         filtered_df['price'].quantile(0.01)) |
-                                       (filtered_df['price'] > 
+                                       (filtered_df['price'] >
                                         filtered_df['price'].quantile(0.99))])
-    st.metric("Potential Outliers", outlier_estimate, delta=f"{(outlier_estimate/len(filtered_df)*100):.1f}%")
+    st.metric("Potential Outliers", outlier_estimate,
+              delta=f"{(outlier_estimate/len(filtered_df)*100):.1f}%")
 
 st.markdown("---")
 
